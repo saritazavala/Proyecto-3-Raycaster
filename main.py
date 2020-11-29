@@ -98,8 +98,12 @@ class Raycaster:
 
     def main_menu_sound(self):
         pygame.mixer.music.load('./music/01_Circle_of_Life.mp3')
-        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.set_volume(0.35)
         pygame.mixer.music.play(-1)
+
+    def step_sound(self):
+        a = pygame.mixer.Sound('./music/step.mp3')
+        a.play()
 
     def point(self, x, y, c=None):
         screen.set_at((x, y), c)
@@ -440,9 +444,12 @@ class Raycaster:
                     if e.button == 4:
                         r.player["x"] += int(d * cos(r.player["a"]))
                         r.player["y"] += int(d * sin(r.player["a"]))
+                        self.step_sound()
+
                     if e.button == 5:
                         r.player["x"] -= int(d * cos(r.player["a"]))
                         r.player["y"] -= int(d * sin(r.player["a"]))
+                        self.step_sound()
 
                     if (r.player["x"] > 390) and (r.player["y"] > 70):
                         self.win_action()
@@ -455,9 +462,11 @@ class Raycaster:
                     if e.key == pygame.K_w:
                         r.player["x"] += int(d * cos(r.player["a"]))
                         r.player["y"] += int(d * sin(r.player["a"]))
+                        self.step_sound()
                     if e.key == pygame.K_s:
                         r.player["x"] -= int(d * cos(r.player["a"]))
                         r.player["y"] -= int(d * sin(r.player["a"]))
+                        self.step_sound()
 
                     if e.key == pygame.K_p:
                         self.pause()
