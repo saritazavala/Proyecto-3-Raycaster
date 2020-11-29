@@ -102,7 +102,7 @@ class Raycaster:
         pygame.mixer.music.play(-1)
 
     def step_sound(self):
-        a = pygame.mixer.Sound('./music/step.mp3')
+        a = pygame.mixer.Sound('./music/step.wav')
         a.play()
 
     def point(self, x, y, c=None):
