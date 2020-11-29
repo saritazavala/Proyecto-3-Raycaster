@@ -83,7 +83,7 @@ class Raycaster:
         self.screen = screen
         self.blocksize = 50
         self.map = []
-        self.zbuffer = [-float('inf') for z in range(int(self.width))]
+        self.zbuffer = [-float('inf') for z in range(1000)]
         self.player = {
             "x": self.blocksize + 20,
             "y": self.blocksize + 20,
@@ -160,22 +160,19 @@ class Raycaster:
             self.point(x, y, c)
 
     def draw_sprite(self, sprite):
-        sprite_a = atan2((sprite["y"] - self.player["y"]),
-                         (sprite["x"] - self.player["x"]))
-        sprite_d = ((self.player["x"] - sprite["x"]) ** 2 +
+        sprite_a = atan2((sprite["y"] - self.player["y"]), (sprite["x"] - self.player["x"]))
+        sprite_d = ((self.player["x"] - sprite["x"]) ** 2 + \
                     (self.player["y"] - sprite["y"]) ** 2) ** 0.5
-        sprite_size_half = int(250 / sprite_d * 70)
-        sprite_size = sprite_size_half * 2
-        sprite_x = int(500 + (sprite_a - self.player["a"]) * 477.46 +
-                       250 - sprite_size_half)
-        sprite_y = int(250 - sprite_size_half)
+        sprite_size = int(500 / sprite_d * 70)
+        sprite_x = int(500 + (sprite_a - self.player["a"]) * 500 / self.player["fov"] + \
+                       250 - sprite_size / 2)
+        sprite_y = int(250 - sprite_size / 2)
 
-        sprite_size_pro = 128 / sprite_size
         for x in range(sprite_x, sprite_x + sprite_size):
             for y in range(sprite_y, sprite_y + sprite_size):
-                if 500 < x < 1000 and self.zbuffer[x - 500] <= sprite_d:
-                    tx = int((x - sprite_x) * sprite_size_pro)
-                    ty = int((y - sprite_y) * sprite_size_pro)
+                if 500 < x < 1000 and self.zbuffer[x - 500] >= sprite_d:
+                    tx = int((x - sprite_x) * 128 / sprite_size)
+                    ty = int((y - sprite_y) * 128 / sprite_size)
                     c = sprite["texture"].get_at((tx, ty))
                     if c != (152, 0, 136, 255):
                         self.point(x, y, c)
@@ -192,8 +189,9 @@ class Raycaster:
         halfHeight = int(self.height / 2)
 
         for i in range(0, 1000):
-            a = self.player["a"] - self.player["fov"] / 2 + (i * 0.00105)
+            a = self.player["a"] - self.player["fov"] / 2 + (i * self.player["fov"] / 1000)
             d, m, tx = self.cast_ray(a)
+            self.zbuffer[i] = d
             x = i
             h = (500 / (d * cos(a - self.player["a"]))) * 50
             self.draw_stake(x, h, tx, textures[m])
@@ -203,16 +201,14 @@ class Raycaster:
                 i = int(x/self.blocksize)
                 j = int(y/self.blocksize)
                 if self.map[j][i] != ' ':
-
                     self.draw_rectangle(x/2, y/2, textures[self.map[j][i]], self.blocksize/2)
-
-        for enemy in enemies:
-            self.point(enemy["x"], enemy["y"], BLACK)
-            self.draw_sprite(enemy)
-
         self.point(int(self.player["x"] * 0.2) + 900, int(self.player["y"] * 0.2) + 400, (255,255,255))
 
-        # self.draw_player(466, 244, player_hand)
+        for enemy in enemies:
+            self.point(int(enemy["x"]/2), int(enemy["y"]), BLACK)
+            self.draw_sprite(enemy)
+
+        self.draw_player(1000 - 256 - 128, 500 - 256)
 
     def drawText(self, text, font, color, surface, x, y):
         textobj = font.render(text, 1, color)
@@ -377,6 +373,8 @@ class Raycaster:
             r.render()
             screen.blit(self.update_fps(), (10, 10))
             clock.tick(30)
+            screen.blit(self.coords(), (850, 15))
+            pygame.display.flip()
             pygame.display.update()
 
 
