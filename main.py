@@ -28,6 +28,10 @@ wall2 = pygame.image.load('./images/wall2.jpg')
 wall3 = pygame.image.load('./images/wall3.jpg')
 wall4 = pygame.image.load('./images/wall4.png')
 wall5 = pygame.image.load('./images/wall5.png')
+win = pygame.image.load('./images/win.jpeg')
+lose = pygame.image.load('./images/lose.jpg')
+rock =  pygame.image.load('./images/rock.png')
+pick =  pygame.image.load('./images/pick.png')
 
 # Enemies
 # ---------------------------------------------------------`
@@ -43,7 +47,7 @@ textures = {
     "3": wall3,
     "4": wall4,
     "5": wall5,
-    # "6": end
+    "6": rock
 }
 enemies = [
     {
@@ -83,7 +87,7 @@ class Raycaster:
         self.screen = screen
         self.blocksize = 50
         self.map = []
-        self.zbuffer = [-float('inf') for z in range(1000)]
+        self.zbuffer = [-float('inf') for z in range(0, 1000)]
         self.player = {
             "x": self.blocksize + 20,
             "y": self.blocksize + 20,
@@ -160,23 +164,30 @@ class Raycaster:
             self.point(x, y, c)
 
     def draw_sprite(self, sprite):
-        sprite_a = atan2((sprite["y"] - self.player["y"]), (sprite["x"] - self.player["x"]))
-        sprite_d = ((self.player["x"] - sprite["x"]) ** 2 + \
-                    (self.player["y"] - sprite["y"]) ** 2) ** 0.5
-        sprite_size = int(500 / sprite_d * 70)
-        sprite_x = int(500 + (sprite_a - self.player["a"]) * 500 / self.player["fov"] + \
-                       250 - sprite_size / 2)
-        sprite_y = int(250 - sprite_size / 2)
+        spriteDist = ((self.player['x'] - sprite['x'])**2 + (self.player['y'] - sprite['y'])**2) ** 0.5
 
-        for x in range(sprite_x, sprite_x + sprite_size):
-            for y in range(sprite_y, sprite_y + sprite_size):
-                if 500 < x < 1000 and self.zbuffer[x - 500] >= sprite_d:
-                    tx = int((x - sprite_x) * 128 / sprite_size)
-                    ty = int((y - sprite_y) * 128 / sprite_size)
-                    c = sprite["texture"].get_at((tx, ty))
-                    if c != (152, 0, 136, 255):
-                        self.point(x, y, c)
-                        self.zbuffer[x - 500] = sprite_d
+        spriteAngle = atan2(sprite['y'] - self.player['y'], sprite['x'] - self.player['x'])
+
+        aspectRatio = sprite["texture"].get_width() / sprite["texture"].get_height()
+        spriteHeight = (self.height / spriteDist) * 50
+        spriteWidth = spriteHeight * aspectRatio
+
+        angleRads = self.player['a'] * pi / 180
+        fovRads = self.player['fov'] * pi / 180
+
+        startX = int((self.width) + (spriteAngle - angleRads)*(self.width) / fovRads - (spriteWidth/2))
+        startY = int((self.height / 2) - (spriteHeight / 2))
+
+        for x in range(startX, int(startX + spriteWidth)):
+            for y in range(startY, int(startY + spriteHeight)):
+                if 0 < x < self.width:
+                    if self.zbuffer[ x - int(self.width)] >= spriteDist:
+                        tx = int( (x - startX) * sprite["texture"].get_width() / spriteWidth )
+                        ty = int( (y - startY) * sprite["texture"].get_height() / spriteHeight )
+                        texColor = sprite["texture"].get_at((tx, ty))
+                        if texColor[3] > 128 and texColor != SPRITE_BACKGROUND:
+                            self.screen.set_at((x,y), texColor)
+                            self.zbuffer[ x - int(self.width)] = spriteDist
 
     def coords(self):
         font = pygame.font.SysFont("forte", 25, False)
@@ -189,12 +200,17 @@ class Raycaster:
         halfHeight = int(self.height / 2)
 
         for i in range(0, 1000):
-            a = self.player["a"] - self.player["fov"] / 2 + (i * self.player["fov"] / 1000)
-            d, m, tx = self.cast_ray(a)
-            self.zbuffer[i] = d
-            x = i
-            h = (500 / (d * cos(a - self.player["a"]))) * 50
-            self.draw_stake(x, h, tx, textures[m])
+            try:
+                a = self.player["a"] - self.player["fov"] / 2 + (i * self.player["fov"] / 1000)
+                d, m, tx = self.cast_ray(a)
+                self.zbuffer[i] = d
+                x = i
+                h = (500 / (d * cos(a - self.player["a"]))) * 50
+                self.draw_stake(x, h, tx, textures[m])
+
+            except:
+                self.lose_action()
+
 
         for x in range(0, halfWidth, self.blocksize):
             for y in range(0, self.height, self.blocksize):
@@ -202,13 +218,13 @@ class Raycaster:
                 j = int(y/self.blocksize)
                 if self.map[j][i] != ' ':
                     self.draw_rectangle(x/2, y/2, textures[self.map[j][i]], self.blocksize/2)
-        self.point(int(self.player["x"] * 0.2) + 900, int(self.player["y"] * 0.2) + 400, (255,255,255))
+        self.point(int(self.player["x"] * 0.2) + 900, int(self.player["y"] * 0.2) + 400, (255, 255, 255))
 
         for enemy in enemies:
-            self.point(int(enemy["x"]/2), int(enemy["y"]), BLACK)
+            self.point(enemy["x"], enemy["y"], BLACK)
             self.draw_sprite(enemy)
 
-        self.draw_player(1000 - 256 - 128, 500 - 256)
+        #self.draw_player(1000 - 256 - 128, 500 - 256)
 
     def drawText(self, text, font, color, surface, x, y):
         textobj = font.render(text, 1, color)
@@ -325,11 +341,47 @@ class Raycaster:
             pygame.display.update()
             clock.tick(15)
 
-    def game_over(self):
-        pass
+    def lose_action(self):
+        while True:
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
+                    exit(0)
+                if e.type == pygame.KEYDOWN:
+                    if e.key == pygame.K_0:
+                        self.start_game()
 
-    def game_win(self):
-        pass
+            congrats_message = pygame.font.SysFont('erasitc', 50, False)
+            TextSurf, TextRect = self.text_objects("Intentalo otra vez!", congrats_message)
+            TextRect.center = (int(self.width / 1.25), int(self.height / 3))
+            screen.blit(TextSurf, TextRect)
+            pygame.display.update()
+            clock.tick(15)
+            screen.blit(lose, (0, 0))
+
+
+
+    def win_action(self):
+        while True:
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
+                    exit(0)
+                if e.type == pygame.KEYDOWN:
+                    if e.key == pygame.K_0:
+                        self.main_menu()
+
+            congrats_message = pygame.font.SysFont('erasitc', 30, True)
+            TextSurf, TextRect = self.text_objects("Hemos ganado!", congrats_message)
+            TextRect.center = (int(self.width / 1.25), int(self.height / 3))
+            screen.blit(TextSurf, TextRect)
+
+            TextSurf, TextRect = self.text_objects("Presiona 0 para regresar", congrats_message)
+            TextRect.center = (int(self.width / 1.25), int(self.height / 2.5))
+            screen.blit(TextSurf, TextRect)
+
+
+            pygame.display.update()
+            clock.tick(15)
+            screen.blit(win, (0, 0))
 
     def update_fps(self):
         font = pygame.font.SysFont("erasitc", 25, True)
@@ -346,7 +398,20 @@ class Raycaster:
             for e in pygame.event.get():
                 if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
                     exit(0)
-                if e.type == pygame.KEYDOWN:
+                if e.type == pygame.MOUSEBUTTONDOWN:
+                    print(e.button)
+                    if e.button == 1:
+                        r.player["a"] -= 0.157
+                    elif e.button == 3:
+                        r.player["a"] += 0.157
+                    elif e.button == 4:
+                        r.player["x"] += int(d * cos(r.player["a"]))
+                        r.player["y"] += int(d * sin(r.player["a"]))
+                    elif e.button == 5:
+                        r.player["x"] -= int(d * cos(r.player["a"]))
+                        r.player["y"] -= int(d * sin(r.player["a"]))
+
+                elif e.type == pygame.KEYDOWN:
                     if not paused:
                         if e.key == pygame.K_a:
                             r.player["a"] -= 0.157
@@ -359,14 +424,11 @@ class Raycaster:
                             r.player["x"] -= int(d * cos(r.player["a"]))
                             r.player["y"] -= int(d * sin(r.player["a"]))
 
-                    if e.key == pygame.K_SPACE:
-                        paused = not paused
-                if e.type == pygame.MOUSEBUTTONDOWN or e.type == pygame.MOUSEBUTTONUP:
-                    if not paused:
-                        if e.button == 4:
-                            r.player['a'] -= 0.157
-                        if e.button == 5:
-                            r.player['a'] += 0.157
+
+
+                        if (r.player["x"] > 390) and (r.player["y"] > 70):
+                            self.win_action()
+
 
             screen.fill(pygame.Color("LIGHTSKYBLUE"), (0, 0, int(r.width), int(r.height / 2)))
             screen.fill(GRASS, (0, int(r.height / 2), int(r.width), int(r.height / 2)))
@@ -379,11 +441,16 @@ class Raycaster:
 
 
 
+
+
 screen.set_alpha(None)
 r = Raycaster(screen)
 r.load_map('./level1.txt')
 pygame.display.set_caption('Zaravala')
 inst = pygame.transform.scale(inst, (r.width, r.height))
+rock = pygame.transform.scale(back, (r.blocksize, r.blocksize))
 back = pygame.transform.scale(back, (r.width, r.height))
+win = pygame.transform.scale(win, (r.width, r.height))
+lose = pygame.transform.scale(lose, (r.width, r.height))
 clock = pygame.time.Clock()
 r.main_menu()
